@@ -44,7 +44,6 @@ jobs:
         run: |
           mkdir -p _site
           OUT=_site/contribs.json python3 .github/scripts/contribs.py
-          OUT=_site/graph-data.json CONTRIBS=_site/contribs.json python3 .github/scripts/graph_data.py
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
