@@ -153,7 +153,21 @@ def build_payload():
         if dd:
             d["d"] = dd
 
-    return {"user": USERNAME, "days": days}
+    return {"user": USERNAME, "days": days, "repoLangs": repo_langs()}
+
+
+def repo_langs():
+    """{repo: primary language} for the terrain's language tinting."""
+    q = ('query($login:String!){user(login:$login){repositories(first:100,'
+         'ownerAffiliations:OWNER){nodes{name primaryLanguage{name}}}}}')
+    out = subprocess.run(["gh", "api", "graphql", "-f", f"query={q}",
+                          "-f", f"login={USERNAME}"], capture_output=True, text=True)
+    if out.returncode:
+        print(f"repoLangs query failed ({out.stderr[:200]}); omitting")
+        return {}
+    nodes = json.loads(out.stdout)["data"]["user"]["repositories"]["nodes"]
+    return {n["name"]: n["primaryLanguage"]["name"]
+            for n in nodes if n["primaryLanguage"]}
 
 
 def main():
