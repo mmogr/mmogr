@@ -30,7 +30,7 @@ from contribs import USERNAME, build_payload  # noqa: E402
 
 OUT_DIR = "profile-cards"
 RAW = f"https://raw.githubusercontent.com/{USERNAME}/{USERNAME}/main/{OUT_DIR}"
-TERRAIN_URL = "https://mattogrady.com/terrain/"
+TERRAIN_URL = "https://mattogrady.com/"
 NOTES_URL = f"https://{USERNAME}.github.io/uninotes/"
 
 MUTED, INK, CARD, GOLD = "#7a86ad", "#e8ecff", "#00000f", "#ffc837"
