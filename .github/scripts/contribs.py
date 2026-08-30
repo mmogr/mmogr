@@ -13,6 +13,9 @@ repo names never appear in the output.
 
 Contribution days are bucketed in TZ_NAME — GitHub buckets the profile
 calendar in the profile owner's timezone, so this must match it.
+
+"ghosts" holds plain daily-count arrays for up to three prior years (newest
+first), for the homepage's hazy background ridges; empty years are dropped.
 """
 import json
 import os
@@ -63,9 +66,20 @@ LEVEL = {"NONE": 0, "FIRST_QUARTILE": 1, "SECOND_QUARTILE": 2,
          "THIRD_QUARTILE": 3, "FOURTH_QUARTILE": 4}
 
 
-def gql(frm, to, cursors):
+GHOST_QUERY = """
+query($login: String!, $from: DateTime!, $to: DateTime!) {
+  user(login: $login) {
+    contributionsCollection(from: $from, to: $to) {
+      contributionCalendar { weeks { contributionDays { contributionCount } } }
+    }
+  }
+}
+"""
+
+
+def gql(frm, to, cursors, query=QUERY):
     cmd = ["gh", "api", "graphql",
-           "-f", f"query={QUERY}", "-f", f"login={USERNAME}",
+           "-f", f"query={query}", "-f", f"login={USERNAME}",
            "-f", f"from={frm}", "-f", f"to={to}"]
     for k, v in cursors.items():
         if v:
@@ -153,7 +167,26 @@ def build_payload():
         if dd:
             d["d"] = dd
 
-    return {"user": USERNAME, "days": days, "repoLangs": repo_langs()}
+    payload = {"user": USERNAME, "days": days, "repoLangs": repo_langs()}
+    ghosts = ghost_years(now)
+    if ghosts:
+        payload["ghosts"] = ghosts
+    return payload
+
+
+def ghost_years(now):
+    """Daily counts for prior years, newest first; stops at the first empty."""
+    ghosts = []
+    for k in range(1, 4):
+        to = now - timedelta(days=365 * k)
+        cal = gql(iso(to - timedelta(days=364)), iso(to), {},
+                  GHOST_QUERY)["contributionCalendar"]
+        counts = [d["contributionCount"]
+                  for w in cal["weeks"] for d in w["contributionDays"]]
+        if not any(counts):
+            break
+        ghosts.append(counts)
+    return ghosts
 
 
 def repo_langs():
