@@ -7,7 +7,7 @@
 <br>
 
 <a href="https://mmogr.github.io/mmogr/">
-  <img src="https://raw.githubusercontent.com/mmogr/mmogr/main/profile-3d-contrib/profile-night-view.svg" alt="3D Contribution Graph" />
+  <img src="https://raw.githubusercontent.com/mmogr/mmogr/main/profile-terrain/terrain.svg" alt="Animated 3D contribution graph — click for the interactive version" />
 </a>
 
 <sub><a href="https://mmogr.github.io/mmogr/">explore the interactive version →</a></sub>

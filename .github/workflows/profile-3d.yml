@@ -23,6 +23,12 @@ jobs:
           THEME: transparent
           UTC_OFFSET: 10
           AUTO_PUSH: false
+      - name: Render animated terrain
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_USERNAME: ${{ github.repository_owner }}
+          TZ_NAME: Australia/Brisbane
+        run: python3 .github/scripts/render_profile_svg.py
       - name: Commit & Push
         run: |
           git config user.name github-actions

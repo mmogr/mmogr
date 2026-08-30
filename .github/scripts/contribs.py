@@ -85,7 +85,7 @@ def local_date(occurred_at):
             .astimezone(TZ).strftime("%Y-%m-%d"))
 
 
-def main():
+def build_payload():
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=364)
 
@@ -153,9 +153,14 @@ def main():
         if dd:
             d["d"] = dd
 
-    payload = {"user": USERNAME, "days": days}
+    return {"user": USERNAME, "days": days}
+
+
+def main():
+    payload = build_payload()
     with open(OUT, "w") as f:
         json.dump(payload, f, separators=(",", ":"))
+    days = payload["days"]
     total = sum(d["count"] for d in days)
     print(f"wrote {OUT}: {len(days)} days, {total} contributions, "
           f"{sum(1 for d in days if 'd' in d)} days with detail")
