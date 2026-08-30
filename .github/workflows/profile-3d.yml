@@ -27,7 +27,7 @@ jobs:
           git push
   pages:
     runs-on: ubuntu-latest
-    name: deploy-contribution-terrain
+    name: publish-data-feed
     permissions:
       pages: write
       id-token: write
@@ -43,8 +43,8 @@ jobs:
           TZ_NAME: Australia/Brisbane
         run: |
           mkdir -p _site
-          cp docs/index.html _site/
           OUT=_site/contribs.json python3 .github/scripts/contribs.py
+          OUT=_site/graph-data.json CONTRIBS=_site/contribs.json python3 .github/scripts/graph_data.py
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

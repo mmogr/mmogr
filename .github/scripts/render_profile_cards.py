@@ -30,7 +30,8 @@ from contribs import USERNAME, build_payload  # noqa: E402
 
 OUT_DIR = "profile-cards"
 RAW = f"https://raw.githubusercontent.com/{USERNAME}/{USERNAME}/main/{OUT_DIR}"
-PAGE_URL = f"https://{USERNAME}.github.io/{USERNAME}/"
+TERRAIN_URL = "https://mattogrady.com/terrain/"
+GRAPH_URL = "https://mattogrady.com/graph/"
 NOTES_URL = f"https://{USERNAME}.github.io/uninotes/"
 
 MUTED, INK, CARD, GOLD = "#7a86ad", "#e8ecff", "#00000f", "#ffc837"
@@ -202,7 +203,7 @@ def main():
         if m["best"]["count"]:
             bd = datetime.fromisoformat(m["best"]["date"])
             lines.append(f"best day {bd.day} {bd:%b} · {m['best']['count']}")
-        month_tags.append(f'<a href="{PAGE_URL}" title="{"&#10;".join(esc(l) for l in lines)}">'
+        month_tags.append(f'<a href="{TERRAIN_URL}" title="{"&#10;".join(esc(l) for l in lines)}">'
                           f'<img src="{RAW}/m{i:02d}.svg" width="{w}" alt="{mdt:%B}"></a>')
 
     # ---------- activity card ----------
@@ -243,7 +244,8 @@ def main():
                  f'text-anchor="end">{v:,}</text>')
         a.append(f'<text x="300" y="{yy}" fill="{MUTED}" font-size="10.5">{name}</text>')
     svg_file("activity.svg", f"0 0 {ACT_W + ACT_GUT} {ACT_H}", "".join(a))
-    act_tip = "past year on GitHub&#10;" + " · ".join(f"{v:,} {n}" for n, v in AX)
+    act_tip = ("past year on GitHub&#10;" + " · ".join(f"{v:,} {n}" for n, v in AX)
+               + "&#10;click → the constellation")
 
     # ---------- languages donut card ----------
     top_langs = {}
@@ -303,9 +305,9 @@ def main():
     # ---------- README ----------
     readme = (
         "<p>" + "".join(month_tags) + "</p>\n"
-        f'<p><a href="{PAGE_URL}" title="{act_tip}">'
+        f'<p><a href="{GRAPH_URL}" title="{act_tip}">'
         f'<img src="{RAW}/activity.svg" width="{ACT_W + ACT_GUT}" alt="activity"></a>'
-        f'<a href="{PAGE_URL}" title="{lang_tip}">'
+        f'<a href="{GRAPH_URL}" title="{lang_tip}">'
         f'<img src="{RAW}/langs.svg" width="{DON_W}" alt="languages"></a></p>\n'
         + ("<p>" + "".join(rec_tags) + "</p>\n" if rec_tags else "")
     )
