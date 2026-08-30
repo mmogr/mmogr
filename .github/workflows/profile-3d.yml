@@ -6,35 +6,23 @@ on:
 jobs:
   graphics:
     runs-on: ubuntu-latest
-    name: generate-profile-graphics
+    name: generate-profile-cards
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: yoshi389111/github-profile-3d-contrib@0.7.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          USERNAME: ${{ github.repository_owner }}
-      - uses: vn7n24fzkq/github-profile-summary-cards@release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          USERNAME: ${{ github.repository_owner }}
-          THEME: transparent
-          UTC_OFFSET: 10
-          AUTO_PUSH: false
-      - name: Render animated terrain
+      - name: Render profile cards + README
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_USERNAME: ${{ github.repository_owner }}
           TZ_NAME: Australia/Brisbane
-        run: python3 .github/scripts/render_profile_svg.py
+        run: python3 .github/scripts/render_profile_cards.py
       - name: Commit & Push
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add -A .
-          git commit -m "generate profile graphics" || echo "no changes"
+          git commit -m "generate profile cards" || echo "no changes"
           git push
   pages:
     runs-on: ubuntu-latest
