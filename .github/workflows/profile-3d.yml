@@ -1,14 +1,16 @@
-name: GitHub-Profile-3D-Contrib
+name: Profile
 on:
   schedule:
     - cron: "0 18 * * *"
   workflow_dispatch:
 jobs:
-  build:
+  graphics:
     runs-on: ubuntu-latest
-    name: generate-github-profile-3d-contrib
+    name: generate-profile-graphics
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: yoshi389111/github-profile-3d-contrib@0.7.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -28,3 +30,28 @@ jobs:
           git add -A .
           git commit -m "generate profile graphics" || echo "no changes"
           git push
+  pages:
+    runs-on: ubuntu-latest
+    name: deploy-contribution-terrain
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_USERNAME: ${{ github.repository_owner }}
+          TZ_NAME: Australia/Brisbane
+        run: |
+          mkdir -p _site
+          cp docs/index.html _site/
+          OUT=_site/contribs.json python3 .github/scripts/contribs.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

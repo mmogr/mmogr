@@ -1,0 +1,616 @@
+<title>Contribution Terrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #00000f;
+    --ink: #e8ecff;
+    --muted: #7a86ad;
+    --line: rgba(122, 134, 173, 0.28);
+    --chip: rgba(10, 16, 42, 0.72);
+    --gold: #ffc837;
+    --blue: #1996e6;
+    --display: "Chakra Petch", "Trebuchet MS", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    overflow: hidden;
+  }
+  #scene {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    touch-action: none;
+    outline: none;
+  }
+  #scene.dragging { cursor: grabbing; }
+  #scene.hovering { cursor: pointer; }
+  #scene:focus-visible { box-shadow: inset 0 0 0 2px var(--gold); }
+
+  header {
+    position: fixed;
+    top: clamp(14px, 3vh, 28px);
+    left: clamp(16px, 3vw, 32px);
+    pointer-events: none;
+    z-index: 3;
+  }
+  header h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.15rem, 2.6vw, 1.6rem);
+    letter-spacing: 0.04em;
+    text-wrap: balance;
+  }
+  header p {
+    margin: 0.3em 0 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    pointer-events: auto;
+  }
+  header a:hover, header a:focus-visible { color: var(--gold); border-color: var(--gold); outline: none; }
+
+  #hint {
+    position: fixed;
+    top: clamp(14px, 3vh, 28px);
+    right: clamp(16px, 3vw, 32px);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    z-index: 3;
+    pointer-events: none;
+    transition: opacity 1.2s ease;
+  }
+  #hint.gone { opacity: 0; }
+
+  #stats {
+    position: fixed;
+    left: 50%;
+    bottom: clamp(14px, 3.5vh, 30px);
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: min(94vw, 760px);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .chip {
+    background: var(--chip);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 14px 9px;
+    min-width: 96px;
+    backdrop-filter: blur(6px);
+  }
+  .chip .label {
+    display: block;
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 3px;
+    white-space: nowrap;
+  }
+  .chip .value {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .chip .sub {
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-left: 5px;
+    letter-spacing: 0.02em;
+  }
+
+  #tip {
+    position: fixed;
+    z-index: 4;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 9px 12px 10px;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease;
+    backdrop-filter: blur(6px);
+    max-width: 240px;
+  }
+  #tip.on { opacity: 1; visibility: visible; }
+  #tip.pinned { pointer-events: auto; }
+  #tip .count {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #tip .count b { color: var(--gold); font-weight: 600; }
+  #tip .date {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.04em;
+  }
+  #tip .brk {
+    display: grid;
+    gap: 3px;
+    margin-top: 7px;
+    padding-top: 7px;
+    border-top: 1px solid var(--line);
+    font-size: 0.66rem;
+    letter-spacing: 0.02em;
+  }
+  #tip .brk:empty { display: none; }
+  #tip .brk .row { display: flex; gap: 5px; white-space: nowrap; }
+  #tip .brk .in, #tip .brk .more { color: var(--muted); }
+  #tip .brk .repo { color: var(--blue); }
+  #tip .go {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--blue);
+    text-decoration: none;
+  }
+  #tip .go:hover, #tip .go:focus-visible { color: var(--gold); outline: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #hint { transition: none; }
+    #tip { transition: none; }
+  }
+</style>
+
+<canvas id="scene" tabindex="0"
+  aria-label="Rotatable 3D graph of daily GitHub contributions. Use arrow keys to move between days, Enter to open that day's activity."></canvas>
+
+<header>
+  <h1>Contribution Terrain</h1>
+  <p><a id="userlink" href="#" target="_blank" rel="noopener">@…</a> <span id="range"></span></p>
+</header>
+
+<div id="hint">drag to orbit · scroll to zoom · hover a day</div>
+
+<div id="stats" aria-label="Year summary"></div>
+
+<div id="tip" role="status">
+  <div class="count"><b id="tip-n">0</b> <span id="tip-word">contributions</span></div>
+  <div class="date" id="tip-d"></div>
+  <div class="brk" id="tip-b"></div>
+  <a class="go" id="tip-a" href="#" target="_blank" rel="noopener">view activity ↗</a>
+</div>
+
+<script>
+"use strict";
+
+const FALLBACK = {"user":"mmogr","days":[{"date":"2025-08-31","level":0,"count":0},{"date":"2025-09-01","level":0,"count":0},{"date":"2025-09-02","level":0,"count":0},{"date":"2025-09-03","level":1,"count":3,"d":{"x":3}},{"date":"2025-09-04","level":0,"count":0},{"date":"2025-09-05","level":0,"count":0},{"date":"2025-09-06","level":0,"count":0},{"date":"2025-09-07","level":1,"count":3,"d":{"x":3}},{"date":"2025-09-08","level":0,"count":0},{"date":"2025-09-09","level":0,"count":0},{"date":"2025-09-10","level":1,"count":9,"d":{"x":9}},{"date":"2025-09-11","level":1,"count":1,"d":{"x":1}},{"date":"2025-09-12","level":1,"count":4,"d":{"x":4}},{"date":"2025-09-13","level":0,"count":0},{"date":"2025-09-14","level":0,"count":0},{"date":"2025-09-15","level":0,"count":0},{"date":"2025-09-16","level":0,"count":0},{"date":"2025-09-17","level":1,"count":12,"d":{"x":12}},{"date":"2025-09-18","level":1,"count":1,"d":{"x":1}},{"date":"2025-09-19","level":1,"count":3,"d":{"x":3}},{"date":"2025-09-20","level":0,"count":0},{"date":"2025-09-21","level":0,"count":0},{"date":"2025-09-22","level":0,"count":0},{"date":"2025-09-23","level":0,"count":0},{"date":"2025-09-24","level":0,"count":0},{"date":"2025-09-25","level":0,"count":0},{"date":"2025-09-26","level":0,"count":0},{"date":"2025-09-27","level":0,"count":0},{"date":"2025-09-28","level":0,"count":0},{"date":"2025-09-29","level":1,"count":3,"d":{"x":3}},{"date":"2025-09-30","level":0,"count":0},{"date":"2025-10-01","level":0,"count":0},{"date":"2025-10-02","level":1,"count":6,"d":{"x":6}},{"date":"2025-10-03","level":0,"count":0},{"date":"2025-10-04","level":0,"count":0},{"date":"2025-10-05","level":0,"count":0},{"date":"2025-10-06","level":0,"count":0},{"date":"2025-10-07","level":0,"count":0},{"date":"2025-10-08","level":0,"count":0},{"date":"2025-10-09","level":0,"count":0},{"date":"2025-10-10","level":0,"count":0},{"date":"2025-10-11","level":0,"count":0},{"date":"2025-10-12","level":0,"count":0},{"date":"2025-10-13","level":0,"count":0},{"date":"2025-10-14","level":0,"count":0},{"date":"2025-10-15","level":0,"count":0},{"date":"2025-10-16","level":0,"count":0},{"date":"2025-10-17","level":0,"count":0},{"date":"2025-10-18","level":1,"count":8,"d":{"x":8}},{"date":"2025-10-19","level":1,"count":8,"d":{"x":8}},{"date":"2025-10-20","level":1,"count":4,"d":{"x":4}},{"date":"2025-10-21","level":1,"count":5,"d":{"x":5}},{"date":"2025-10-22","level":0,"count":0},{"date":"2025-10-23","level":1,"count":11,"d":{"x":11}},{"date":"2025-10-24","level":1,"count":2,"d":{"x":2}},{"date":"2025-10-25","level":2,"count":23,"d":{"x":23}},{"date":"2025-10-26","level":1,"count":8,"d":{"x":8}},{"date":"2025-10-27","level":1,"count":10,"d":{"x":10}},{"date":"2025-10-28","level":0,"count":0},{"date":"2025-10-29","level":2,"count":17,"d":{"x":17}},{"date":"2025-10-30","level":1,"count":3,"d":{"x":3}},{"date":"2025-10-31","level":1,"count":5,"d":{"x":5}},{"date":"2025-11-01","level":1,"count":6,"d":{"x":6}},{"date":"2025-11-02","level":1,"count":2,"d":{"x":2}},{"date":"2025-11-03","level":2,"count":25,"d":{"x":25}},{"date":"2025-11-04","level":2,"count":20,"d":{"x":20}},{"date":"2025-11-05","level":1,"count":2,"d":{"x":2}},{"date":"2025-11-06","level":0,"count":0},{"date":"2025-11-07","level":1,"count":3,"d":{"x":3}},{"date":"2025-11-08","level":1,"count":2,"d":{"x":2}},{"date":"2025-11-09","level":0,"count":0},{"date":"2025-11-10","level":0,"count":0},{"date":"2025-11-11","level":1,"count":1,"d":{"x":1}},{"date":"2025-11-12","level":0,"count":0},{"date":"2025-11-13","level":0,"count":0},{"date":"2025-11-14","level":0,"count":0},{"date":"2025-11-15","level":0,"count":0},{"date":"2025-11-16","level":0,"count":0},{"date":"2025-11-17","level":0,"count":0},{"date":"2025-11-18","level":0,"count":0},{"date":"2025-11-19","level":0,"count":0},{"date":"2025-11-20","level":0,"count":0},{"date":"2025-11-21","level":0,"count":0},{"date":"2025-11-22","level":1,"count":2,"d":{"x":2}},{"date":"2025-11-23","level":0,"count":0},{"date":"2025-11-24","level":0,"count":0},{"date":"2025-11-25","level":0,"count":0},{"date":"2025-11-26","level":0,"count":0},{"date":"2025-11-27","level":0,"count":0},{"date":"2025-11-28","level":0,"count":0},{"date":"2025-11-29","level":0,"count":0},{"date":"2025-11-30","level":0,"count":0},{"date":"2025-12-01","level":0,"count":0},{"date":"2025-12-02","level":0,"count":0},{"date":"2025-12-03","level":0,"count":0},{"date":"2025-12-04","level":0,"count":0},{"date":"2025-12-05","level":0,"count":0},{"date":"2025-12-06","level":0,"count":0},{"date":"2025-12-07","level":0,"count":0},{"date":"2025-12-08","level":0,"count":0},{"date":"2025-12-09","level":0,"count":0},{"date":"2025-12-10","level":0,"count":0},{"date":"2025-12-11","level":0,"count":0},{"date":"2025-12-12","level":0,"count":0},{"date":"2025-12-13","level":0,"count":0},{"date":"2025-12-14","level":0,"count":0},{"date":"2025-12-15","level":0,"count":0},{"date":"2025-12-16","level":0,"count":0},{"date":"2025-12-17","level":0,"count":0},{"date":"2025-12-18","level":0,"count":0},{"date":"2025-12-19","level":0,"count":0},{"date":"2025-12-20","level":0,"count":0},{"date":"2025-12-21","level":1,"count":12,"d":{"c":[["gglib",6]],"i":[["gglib",2]],"p":[["gglib",3]],"x":1}},{"date":"2025-12-22","level":1,"count":3,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2025-12-23","level":1,"count":11,"d":{"c":[["gglib",2]],"p":[["gglib",2]],"i":[["gglib",2]],"x":5}},{"date":"2025-12-24","level":2,"count":22,"d":{"c":[["gglib",11]],"p":[["gglib",9]],"i":[["gglib",2]]}},{"date":"2025-12-25","level":1,"count":8,"d":{"c":[["gglib",2]],"i":[["gglib",3]],"p":[["gglib",3]]}},{"date":"2025-12-26","level":0,"count":0},{"date":"2025-12-27","level":0,"count":0},{"date":"2025-12-28","level":1,"count":8,"d":{"c":[["gglib",5]],"i":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2025-12-29","level":1,"count":4,"d":{"c":[["gglib",1]],"i":[["gglib",2]],"p":[["gglib",1]]}},{"date":"2025-12-30","level":1,"count":15,"d":{"c":[["gglib",6]],"i":[["gglib",4]],"p":[["gglib",5]]}},{"date":"2025-12-31","level":1,"count":1,"d":{"c":[["gglib",1]]}},{"date":"2026-01-01","level":1,"count":3,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-01-02","level":1,"count":2,"d":{"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-01-03","level":1,"count":3,"d":{"i":[["gglib",2]],"p":[["gglib",1]]}},{"date":"2026-01-04","level":0,"count":0},{"date":"2026-01-05","level":0,"count":0},{"date":"2026-01-06","level":1,"count":6,"d":{"x":6}},{"date":"2026-01-07","level":1,"count":6,"d":{"x":6}},{"date":"2026-01-08","level":0,"count":0},{"date":"2026-01-09","level":0,"count":0},{"date":"2026-01-10","level":1,"count":14,"d":{"c":[["gglib",6]],"i":[["gglib",4]],"p":[["gglib",4]]}},{"date":"2026-01-11","level":1,"count":3,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-01-12","level":1,"count":3,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-01-13","level":1,"count":8,"d":{"c":[["gglib",2]],"i":[["gglib",6]]}},{"date":"2026-01-14","level":1,"count":13,"d":{"c":[["gglib",5]],"p":[["gglib",5]],"i":[["gglib",3]]}},{"date":"2026-01-15","level":0,"count":0},{"date":"2026-01-16","level":0,"count":0},{"date":"2026-01-17","level":1,"count":3,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-01-18","level":1,"count":10,"d":{"c":[["gglib",5]],"p":[["gglib",4]],"i":[["gglib",1]]}},{"date":"2026-01-19","level":0,"count":0},{"date":"2026-01-20","level":0,"count":0},{"date":"2026-01-21","level":1,"count":4,"d":{"c":[["gglib",2]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-01-22","level":0,"count":0},{"date":"2026-01-23","level":0,"count":0},{"date":"2026-01-24","level":0,"count":0},{"date":"2026-01-25","level":2,"count":18,"d":{"c":[["gglib",7]],"i":[["gglib",4]],"p":[["gglib",7]]}},{"date":"2026-01-26","level":2,"count":19,"d":{"c":[["gglib",7]],"p":[["gglib",7]],"i":[["gglib",5]]}},{"date":"2026-01-27","level":1,"count":4,"d":{"c":[["gglib",2]],"p":[["gglib",2]]}},{"date":"2026-01-28","level":0,"count":0},{"date":"2026-01-29","level":0,"count":0},{"date":"2026-01-30","level":1,"count":2,"d":{"c":[["gglib",1]],"x":1}},{"date":"2026-01-31","level":2,"count":19,"d":{"c":[["gglib",5]],"i":[["gglib",8]],"p":[["gglib",4]],"x":2}},{"date":"2026-02-01","level":1,"count":6,"d":{"c":[["gglib",3]],"p":[["gglib",3]]}},{"date":"2026-02-02","level":0,"count":0},{"date":"2026-02-03","level":1,"count":2,"d":{"x":2}},{"date":"2026-02-04","level":1,"count":2,"d":{"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-02-05","level":1,"count":4,"d":{"c":[["gglib",3]],"i":[["gglib",1]]}},{"date":"2026-02-06","level":1,"count":3,"d":{"c":[["gglib",1]],"p":[["gglib",1]],"i":[["gglib",1]]}},{"date":"2026-02-07","level":1,"count":10,"d":{"c":[["gglib",3]],"p":[["gglib",4]],"i":[["gglib",3]]}},{"date":"2026-02-08","level":1,"count":9,"d":{"c":[["gglib",4]],"i":[["gglib",2]],"p":[["gglib",3]]}},{"date":"2026-02-09","level":1,"count":1,"d":{"i":[["gglib",1]]}},{"date":"2026-02-10","level":1,"count":1,"d":{"p":[["gglib",1]]}},{"date":"2026-02-11","level":0,"count":0},{"date":"2026-02-12","level":0,"count":0},{"date":"2026-02-13","level":0,"count":0},{"date":"2026-02-14","level":1,"count":9,"d":{"c":[["gglib",2]],"i":[["gglib",4]],"p":[["gglib",3]]}},{"date":"2026-02-15","level":1,"count":2,"d":{"c":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-02-16","level":0,"count":0},{"date":"2026-02-17","level":1,"count":9,"d":{"c":[["gglib",2]],"p":[["gglib",1]],"i":[["gglib",6]]}},{"date":"2026-02-18","level":2,"count":26,"d":{"c":[["gglib",10]],"p":[["gglib",8]],"i":[["gglib",8]]}},{"date":"2026-02-19","level":1,"count":5,"d":{"p":[["gglib",3]],"i":[["gglib",2]]}},{"date":"2026-02-20","level":1,"count":16,"d":{"c":[["gglib",3]],"p":[["gglib",4]],"i":[["gglib",9]]}},{"date":"2026-02-21","level":1,"count":13,"d":{"p":[["gglib",12]],"i":[["gglib",1]]}},{"date":"2026-02-22","level":1,"count":7,"d":{"c":[["gglib",4]],"i":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2026-02-23","level":1,"count":5,"d":{"c":[["stellaris-mcp",1]],"i":[["gglib",2]],"p":[["gglib",1]],"x":1}},{"date":"2026-02-24","level":1,"count":1,"d":{"p":[["gglib",1]]}},{"date":"2026-02-25","level":3,"count":38,"d":{"c":[["gglib",3]],"p":[["gglib",1]],"i":[["gglib",34]]}},{"date":"2026-02-26","level":2,"count":28,"d":{"c":[["gglib",9]],"p":[["gglib",19]]}},{"date":"2026-02-27","level":1,"count":15,"d":{"c":[["gglib",3]],"i":[["gglib",3]],"p":[["gglib",9]]}},{"date":"2026-02-28","level":1,"count":3,"d":{"p":[["gglib",3]],"r":[["gglib",1]]}},{"date":"2026-03-01","level":0,"count":0},{"date":"2026-03-02","level":1,"count":1,"d":{"r":[["gglib",1]]}},{"date":"2026-03-03","level":0,"count":0},{"date":"2026-03-04","level":1,"count":2,"d":{"c":[["gglib",2]]}},{"date":"2026-03-05","level":1,"count":2,"d":{"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-03-06","level":1,"count":3,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-03-07","level":1,"count":6,"d":{"c":[["gglib",3]],"p":[["gglib",2]],"i":[["gglib",1]]}},{"date":"2026-03-08","level":2,"count":19,"d":{"c":[["gglib",8]],"p":[["gglib",10]],"i":[["gglib",1]]}},{"date":"2026-03-09","level":1,"count":11,"d":{"c":[["gglib",3]],"p":[["gglib",4]],"i":[["gglib",2]],"x":2}},{"date":"2026-03-10","level":0,"count":0},{"date":"2026-03-11","level":1,"count":9,"d":{"c":[["gglib",5]],"p":[["gglib",3]],"i":[["gglib",1]]}},{"date":"2026-03-12","level":1,"count":13,"d":{"c":[["gglib",3]],"p":[["gglib",3]],"x":7}},{"date":"2026-03-13","level":1,"count":14,"d":{"c":[["gglib",9]],"i":[["gglib",2]],"p":[["gglib",3]]}},{"date":"2026-03-14","level":1,"count":3,"d":{"c":[["gglib",2]],"p":[["gglib",1]]}},{"date":"2026-03-15","level":1,"count":2,"d":{"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-03-16","level":0,"count":0},{"date":"2026-03-17","level":0,"count":0},{"date":"2026-03-18","level":1,"count":2,"d":{"x":2}},{"date":"2026-03-19","level":0,"count":0},{"date":"2026-03-20","level":0,"count":0},{"date":"2026-03-21","level":0,"count":0},{"date":"2026-03-22","level":1,"count":1,"d":{"p":[["gglib",1]]}},{"date":"2026-03-23","level":1,"count":7,"d":{"x":7}},{"date":"2026-03-24","level":1,"count":1,"d":{"p":[["gglib",1]]}},{"date":"2026-03-25","level":1,"count":3,"d":{"x":3}},{"date":"2026-03-26","level":1,"count":4,"d":{"c":[["gglib",2]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-03-27","level":2,"count":25,"d":{"c":[["gglib",1]],"i":[["gglib",20]],"p":[["gglib",5]]}},{"date":"2026-03-28","level":1,"count":7,"d":{"c":[["gglib",1]],"p":[["gglib",5]],"x":1}},{"date":"2026-03-29","level":1,"count":5,"d":{"c":[["gglib",1]],"p":[["gglib",2]],"i":[["gglib",1]],"x":1}},{"date":"2026-03-30","level":1,"count":3,"d":{"p":[["gglib",1]],"x":2}},{"date":"2026-03-31","level":1,"count":5,"d":{"c":[["gglib",2]],"p":[["gglib",1]],"x":2}},{"date":"2026-04-01","level":1,"count":2,"d":{"x":2}},{"date":"2026-04-02","level":1,"count":1,"d":{"x":1}},{"date":"2026-04-03","level":1,"count":6,"d":{"c":[["gglib",4]],"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-04-04","level":1,"count":2,"d":{"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-04-05","level":1,"count":4,"d":{"c":[["gglib",2]],"p":[["gglib",2]]}},{"date":"2026-04-06","level":1,"count":7,"d":{"c":[["gglib",4]],"p":[["gglib",3]]}},{"date":"2026-04-07","level":0,"count":0},{"date":"2026-04-08","level":0,"count":0},{"date":"2026-04-09","level":0,"count":0},{"date":"2026-04-10","level":2,"count":30,"d":{"c":[["flip-companion",12],["dotfiles",2]],"p":[["flip-companion",13]],"i":[["flip-companion",1]],"x":2}},{"date":"2026-04-11","level":1,"count":1,"d":{"x":1}},{"date":"2026-04-12","level":1,"count":7,"d":{"c":[["flip-companion",7]]}},{"date":"2026-04-13","level":0,"count":0},{"date":"2026-04-14","level":1,"count":1,"d":{"p":[["gglib",1]]}},{"date":"2026-04-15","level":1,"count":3,"d":{"c":[["flip-companion",3]]}},{"date":"2026-04-16","level":1,"count":5,"d":{"c":[["gglib",3]],"p":[["gglib",2]]}},{"date":"2026-04-17","level":2,"count":18,"d":{"c":[["gglib",8],["flip-companion",2]],"p":[["gglib",6]],"i":[["gglib",2]]}},{"date":"2026-04-18","level":1,"count":12,"d":{"c":[["gglib",2]],"i":[["gglib",1]],"p":[["gglib",9]]}},{"date":"2026-04-19","level":1,"count":5,"d":{"c":[["gglib",2]],"p":[["gglib",3]]}},{"date":"2026-04-20","level":1,"count":3,"d":{"i":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2026-04-21","level":1,"count":6,"d":{"c":[["gglib",2]],"i":[["gglib",2]],"p":[["gglib",2]]}},{"date":"2026-04-22","level":1,"count":5,"d":{"c":[["gglib",4]],"p":[["gglib",1]]}},{"date":"2026-04-23","level":0,"count":0},{"date":"2026-04-24","level":0,"count":0},{"date":"2026-04-25","level":1,"count":9,"d":{"c":[["gglib",2],["flip-companion",2]],"p":[["gglib",5]]}},{"date":"2026-04-26","level":1,"count":14,"d":{"c":[["gglib",3]],"p":[["gglib",6]],"i":[["gglib",5]]}},{"date":"2026-04-27","level":0,"count":0},{"date":"2026-04-28","level":0,"count":0},{"date":"2026-04-29","level":0,"count":0},{"date":"2026-04-30","level":0,"count":0},{"date":"2026-05-01","level":1,"count":3,"d":{"c":[["gglib",2]],"p":[["gglib",1]]}},{"date":"2026-05-02","level":1,"count":7,"d":{"c":[["gglib",2]],"i":[["gglib",2]],"p":[["gglib",3]]}},{"date":"2026-05-03","level":1,"count":14,"d":{"c":[["dotfiles",3]],"p":[["gglib",8]],"x":3}},{"date":"2026-05-04","level":1,"count":3,"d":{"c":[["dotfiles",1]],"x":2}},{"date":"2026-05-05","level":0,"count":0},{"date":"2026-05-06","level":1,"count":5,"d":{"p":[["dotfiles",1]],"x":4}},{"date":"2026-05-07","level":0,"count":0},{"date":"2026-05-08","level":1,"count":8,"d":{"p":[["gglib",1]],"x":7}},{"date":"2026-05-09","level":1,"count":14,"d":{"c":[["gglib",3]],"i":[["gglib",1]],"p":[["gglib",1]],"x":9}},{"date":"2026-05-10","level":3,"count":46,"d":{"c":[["dotfiles",2],["gglib",1]],"p":[["dotfiles",1],["gglib",1]],"x":41}},{"date":"2026-05-11","level":0,"count":0},{"date":"2026-05-12","level":1,"count":6,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",4]]}},{"date":"2026-05-13","level":1,"count":2,"d":{"x":2}},{"date":"2026-05-14","level":1,"count":8,"d":{"c":[["gglib",3]],"x":5}},{"date":"2026-05-15","level":1,"count":2,"d":{"x":2}},{"date":"2026-05-16","level":0,"count":0},{"date":"2026-05-17","level":0,"count":0},{"date":"2026-05-18","level":0,"count":0},{"date":"2026-05-19","level":1,"count":1,"d":{"p":[["dotfiles",1]]}},{"date":"2026-05-20","level":0,"count":0},{"date":"2026-05-21","level":0,"count":0},{"date":"2026-05-22","level":1,"count":14,"d":{"i":[["gglib",7]],"p":[["gglib",7]]}},{"date":"2026-05-23","level":1,"count":14,"d":{"i":[["gglib",1]],"p":[["gglib",7]],"x":6}},{"date":"2026-05-24","level":2,"count":32,"d":{"p":[["gglib",2]],"x":30}},{"date":"2026-05-25","level":1,"count":1,"d":{"c":[["gglib",1]]}},{"date":"2026-05-26","level":1,"count":2,"d":{"x":2}},{"date":"2026-05-27","level":1,"count":1,"d":{"x":1}},{"date":"2026-05-28","level":0,"count":0},{"date":"2026-05-29","level":1,"count":3,"d":{"x":3}},{"date":"2026-05-30","level":1,"count":4,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2026-05-31","level":1,"count":4,"d":{"c":[["gglib",1]],"i":[["gglib",1]],"p":[["gglib",1]],"r":[["gglib",1]]}},{"date":"2026-06-01","level":1,"count":1,"d":{"c":[["gglib",1]]}},{"date":"2026-06-02","level":0,"count":0},{"date":"2026-06-03","level":0,"count":0},{"date":"2026-06-04","level":0,"count":0},{"date":"2026-06-05","level":1,"count":2,"d":{"i":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-06-06","level":1,"count":8,"d":{"c":[["gglib",4]],"i":[["gglib",1]],"p":[["gglib",3]]}},{"date":"2026-06-07","level":1,"count":4,"d":{"c":[["gglib",2]],"p":[["gglib",2]]}},{"date":"2026-06-08","level":0,"count":0},{"date":"2026-06-09","level":0,"count":0},{"date":"2026-06-10","level":0,"count":0},{"date":"2026-06-11","level":1,"count":2,"d":{"c":[["dotfiles",1]],"p":[["dotfiles",1]]}},{"date":"2026-06-12","level":0,"count":0},{"date":"2026-06-13","level":0,"count":0},{"date":"2026-06-14","level":1,"count":6,"d":{"c":[["csse2002-exam",5]],"x":1}},{"date":"2026-06-15","level":1,"count":2,"d":{"c":[["csse2002-exam",2]]}},{"date":"2026-06-16","level":0,"count":0},{"date":"2026-06-17","level":0,"count":0},{"date":"2026-06-18","level":1,"count":7,"d":{"c":[["transcribe-book",4],["dotfiles",1]],"p":[["dotfiles",1]],"x":1}},{"date":"2026-06-19","level":0,"count":0},{"date":"2026-06-20","level":1,"count":15,"d":{"c":[["gglib",6]],"p":[["gglib",7]],"i":[["gglib",2]]}},{"date":"2026-06-21","level":1,"count":2,"d":{"c":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-06-22","level":0,"count":0},{"date":"2026-06-23","level":0,"count":0},{"date":"2026-06-24","level":1,"count":5,"d":{"c":[["gglib",2],["dotfiles",1]],"p":[["dotfiles",1],["gglib",1]]}},{"date":"2026-06-25","level":2,"count":25,"d":{"c":[["dotfiles",16]],"i":[["dotfiles",3]],"p":[["dotfiles",6]]}},{"date":"2026-06-26","level":1,"count":10,"d":{"c":[["dotfiles",8]],"p":[["dotfiles",2]]}},{"date":"2026-06-27","level":1,"count":3,"d":{"c":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2026-06-28","level":1,"count":16,"d":{"c":[["gglib",6]],"p":[["gglib",5]],"i":[["gglib",5]]}},{"date":"2026-06-29","level":1,"count":2,"d":{"c":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-06-30","level":1,"count":6,"d":{"c":[["gglib",3]],"p":[["gglib",3]]}},{"date":"2026-07-01","level":1,"count":3,"d":{"c":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2026-07-02","level":1,"count":16,"d":{"c":[["dotfiles",7],["gglib",4]],"i":[["gglib",2]],"p":[["gglib",2],["dotfiles",1]]}},{"date":"2026-07-03","level":1,"count":3,"d":{"c":[["dotfiles",1]],"p":[["dotfiles",1],["gglib",1]]}},{"date":"2026-07-04","level":2,"count":17,"d":{"c":[["dotfiles",10],["gglib",4]],"p":[["gglib",2],["dotfiles",1]]}},{"date":"2026-07-05","level":1,"count":3,"d":{"c":[["gglib",1]],"p":[["gglib",1],["dotfiles",1]]}},{"date":"2026-07-06","level":1,"count":4,"d":{"c":[["dotfiles",3]],"p":[["gglib",1]]}},{"date":"2026-07-07","level":0,"count":0},{"date":"2026-07-08","level":1,"count":4,"d":{"c":[["gglib",3]],"p":[["gglib",1]]}},{"date":"2026-07-09","level":1,"count":3,"d":{"c":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2026-07-10","level":1,"count":2,"d":{"c":[["gglib",1]],"i":[["gglib",1]]}},{"date":"2026-07-11","level":1,"count":1,"d":{"p":[["gglib",1]]}},{"date":"2026-07-12","level":0,"count":0},{"date":"2026-07-13","level":1,"count":6,"d":{"c":[["dotfiles",2],["gglib",1]],"i":[["gglib",3]]}},{"date":"2026-07-14","level":1,"count":2,"d":{"c":[["gglib",1]],"p":[["gglib",1]]}},{"date":"2026-07-15","level":1,"count":1,"d":{"i":[["gglib",1]]}},{"date":"2026-07-16","level":0,"count":0},{"date":"2026-07-17","level":0,"count":0},{"date":"2026-07-18","level":1,"count":6,"d":{"c":[["gglib",1]],"p":[["gglib",1]],"i":[["gglib",4]]}},{"date":"2026-07-19","level":1,"count":5,"d":{"c":[["gglib",2]],"i":[["gglib",1]],"p":[["gglib",2]]}},{"date":"2026-07-20","level":0,"count":0},{"date":"2026-07-21","level":2,"count":33,"d":{"c":[["infs1200-exam",17],["gglib",4]],"p":[["gglib",3]],"i":[["gglib",8]],"x":1}},{"date":"2026-07-22","level":2,"count":20,"d":{"c":[["gglib",9],["infs1200-exam",1]],"p":[["gglib",8],["dotfiles",1]],"i":[["gglib",1]]}},{"date":"2026-07-23","level":1,"count":8,"d":{"c":[["gglib",3],["dotfiles",1]],"p":[["gglib",3],["dotfiles",1]]}},{"date":"2026-07-24","level":1,"count":1,"d":{"r":[["gglib",1]]}},{"date":"2026-07-25","level":1,"count":6,"d":{"c":[["gglib",1]],"i":[["gglib",4]],"p":[["gglib",1]]}},{"date":"2026-07-26","level":1,"count":6,"d":{"c":[["gglib",1],["flip-companion",1]],"p":[["gglib",2]],"x":2}},{"date":"2026-07-27","level":1,"count":16,"d":{"c":[["gglib",2]],"p":[["gglib",4]],"r":[["gglib",1]],"i":[["gglib",9]]}},{"date":"2026-07-28","level":1,"count":11,"d":{"c":[["gglib",4]],"p":[["gglib",7]]}},{"date":"2026-07-29","level":1,"count":14,"d":{"c":[["gglib",7]],"p":[["gglib",6]],"i":[["gglib",1]]}},{"date":"2026-07-30","level":2,"count":33,"d":{"c":[["gglib",21]],"p":[["gglib",9]],"i":[["gglib",3]]}},{"date":"2026-07-31","level":2,"count":23,"d":{"c":[["gglib",9]],"p":[["gglib",10]],"i":[["gglib",2]],"x":2}},{"date":"2026-08-01","level":4,"count":58,"d":{"c":[["dotfiles",1]],"p":[["dotfiles",1]],"x":56}},{"date":"2026-08-02","level":3,"count":49,"d":{"c":[["dotfiles",1]],"x":48}},{"date":"2026-08-03","level":2,"count":23,"d":{"x":23}},{"date":"2026-08-04","level":1,"count":13,"d":{"p":[["gglib",2],["dotfiles",1]],"x":10}},{"date":"2026-08-05","level":2,"count":23,"d":{"c":[["gglib",10]],"p":[["gglib",11]],"i":[["gglib",2]]}},{"date":"2026-08-06","level":2,"count":33,"d":{"c":[["gglib",17]],"p":[["gglib",15]],"i":[["gglib",1]]}},{"date":"2026-08-07","level":1,"count":14,"d":{"c":[["gglib",6]],"p":[["gglib",6]],"i":[["gglib",2]]}},{"date":"2026-08-08","level":2,"count":21,"d":{"c":[["gglib",7]],"i":[["gglib",6]],"p":[["gglib",8]]}},{"date":"2026-08-09","level":1,"count":7,"d":{"c":[["gglib",1]],"i":[["gglib",5]],"p":[["gglib",1]]}},{"date":"2026-08-10","level":2,"count":21,"d":{"c":[["gglib",6]],"p":[["gglib",15]]}},{"date":"2026-08-11","level":2,"count":25,"d":{"c":[["gglib",16]],"p":[["gglib",6]],"x":3}},{"date":"2026-08-12","level":4,"count":66,"d":{"c":[["gglib",34]],"p":[["gglib",32]]}},{"date":"2026-08-13","level":4,"count":57,"d":{"c":[["gglib",28]],"p":[["gglib",29]]}},{"date":"2026-08-14","level":1,"count":11,"d":{"c":[["gglib",6]],"p":[["gglib",5]]}},{"date":"2026-08-15","level":3,"count":37,"d":{"c":[["gglib",27]],"p":[["gglib",10]]}},{"date":"2026-08-16","level":1,"count":14,"d":{"c":[["gglib",2]],"p":[["gglib",1]],"x":11}},{"date":"2026-08-17","level":2,"count":24,"d":{"c":[["gglib",15]],"p":[["gglib",9]]}},{"date":"2026-08-18","level":1,"count":8,"d":{"p":[["gglib",8]]}},{"date":"2026-08-19","level":1,"count":9,"d":{"c":[["gglib",3]],"p":[["gglib",5]],"i":[["gglib",1]]}},{"date":"2026-08-20","level":1,"count":9,"d":{"c":[["gglib",1]],"p":[["gglib",2]],"i":[["gglib",1]],"x":5}},{"date":"2026-08-21","level":2,"count":23,"d":{"c":[["gglib",9]],"p":[["gglib",14]]}},{"date":"2026-08-22","level":3,"count":43,"d":{"x":43}},{"date":"2026-08-23","level":1,"count":15,"d":{"c":[["gglib",3]],"p":[["gglib",2]],"i":[["gglib",1]],"x":9}},{"date":"2026-08-24","level":2,"count":20,"d":{"c":[["gglib",10]],"p":[["gglib",9]],"i":[["gglib",1]]}},{"date":"2026-08-25","level":1,"count":9,"d":{"c":[["gglib",4]],"p":[["gglib",5]]}},{"date":"2026-08-26","level":1,"count":8,"d":{"c":[["gglib",4]],"p":[["gglib",4]]}},{"date":"2026-08-27","level":1,"count":10,"d":{"c":[["gglib",3]],"p":[["gglib",7]]}},{"date":"2026-08-28","level":2,"count":32,"d":{"c":[["gglib",14]],"p":[["gglib",11]],"i":[["gglib",7]]}},{"date":"2026-08-29","level":1,"count":12,"d":{"c":[["gglib",3]],"p":[["gglib",8]],"i":[["gglib",1]]}},{"date":"2026-08-30","level":1,"count":16,"d":{"c":[["mmogr",5],["modelpipe",4]],"i":[["gglib",1]],"p":[["modelpipe",4]],"x":2}}]};
+
+/* ---------- data ---------- */
+
+const canvas = document.getElementById("scene");
+const ctx = canvas.getContext("2d");
+const tip = document.getElementById("tip");
+const hint = document.getElementById("hint");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* night-view ramp: top-face color per contribution level 0..4 */
+const RAMP = [
+  [25, 60, 130],
+  [25, 90, 210],
+  [25, 120, 220],
+  [25, 150, 230],
+  [25, 165, 240],
+];
+const GOLD = [255, 200, 55];
+const BG = "#00000f";
+
+fetch("contribs.json", { cache: "no-store" })
+  .then(r => (r.ok ? r.json() : FALLBACK))
+  .catch(() => FALLBACK)
+  .then(init);
+
+function init(data) {
+  const days = data.days;
+  if (!days.length) return;
+  const user = data.user;
+
+  const link = document.getElementById("userlink");
+  link.textContent = "@" + user;
+  link.href = "https://github.com/" + user;
+
+  const fmt = d => new Date(d + "T00:00:00").toLocaleDateString(undefined,
+    { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const fmtShort = d => new Date(d + "T00:00:00").toLocaleDateString(undefined,
+    { day: "numeric", month: "short" });
+  document.getElementById("range").textContent =
+    "· " + fmtShort(days[0].date) + " — " + fmtShort(days[days.length - 1].date);
+
+  /* ---- grid: GitHub weeks start Sunday; col = week, row = weekday ---- */
+  const bars = [];
+  let col = 0;
+  for (const d of days) {
+    const row = new Date(d.date + "T00:00:00").getDay();
+    if (row === 0 && bars.length) col++;
+    bars.push({ ...d, col, row });
+  }
+  const COLS = col + 1;
+  const maxCount = Math.max(1, ...bars.map(b => b.count));
+
+  /* ---- stats (all computed) ---- */
+  const total = bars.reduce((s, b) => s + b.count, 0);
+  const busiest = bars.reduce((a, b) => (b.count > a.count ? b : a));
+  let longest = 0, current = 0, run = 0;
+  for (const b of bars) { run = b.count > 0 ? run + 1 : 0; longest = Math.max(longest, run); }
+  for (let i = bars.length - 1; i >= 0; i--) {
+    if (bars[i].count > 0) current++;
+    else if (i === bars.length - 1) continue; /* today can still be 0 */
+    else break;
+  }
+  const dayWord = n => (n === 1 ? "day" : "days");
+  document.getElementById("stats").innerHTML = [
+    ["contributions", total.toLocaleString(), "past year"],
+    ["busiest day", busiest.count, fmtShort(busiest.date)],
+    ["current streak", current, dayWord(current)],
+    ["longest streak", longest, dayWord(longest)],
+  ].map(([l, v, s]) =>
+    `<div class="chip"><span class="label">${l}</span><span class="value">${v}</span><span class="sub">${s}</span></div>`
+  ).join("");
+
+  /* ---- month + weekday labels, derived from the data ---- */
+  const monthLabels = [];
+  let lastMonth = -1;
+  for (const b of bars) {
+    const dt = new Date(b.date + "T00:00:00");
+    if (dt.getMonth() !== lastMonth) {
+      lastMonth = dt.getMonth();
+      if (b.col > 0 && b.col < COLS - 2)
+        monthLabels.push({ col: b.col, text: dt.toLocaleDateString(undefined, { month: "short" }) });
+    }
+  }
+  const WD = [1, 3, 5].map(i => ({
+    row: i,
+    text: new Date(2026, 2, 1 + i).toLocaleDateString(undefined, { weekday: "short" }),
+  }));
+
+  /* ---- stars: seeded, stable across frames ---- */
+  const rng = (s => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(20260831);
+  const stars = Array.from({ length: 150 }, () => ({
+    x: rng(), y: rng() * 0.82, r: 0.4 + rng() * 1.1, p: rng() * Math.PI * 2, tw: 0.3 + rng() * 0.7,
+  }));
+
+  /* ---- camera ---- */
+  let yaw = -0.65, pitch = 0.62, zoom = 1;
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener("resize", () => { resize(); draw(); });
+  resize();
+
+  const shade = (c, f) => `rgb(${(c[0] * f) | 0},${(c[1] * f) | 0},${(c[2] * f) | 0})`;
+
+  /* ---- interaction state ---- */
+  let hovered = -1, pinnedBar = -1, keyBar = -1;
+  let dragging = false, moved = false, lastX = 0, lastY = 0;
+  let idleAt = performance.now(), started = performance.now();
+  let pinch = null;
+
+  function project() {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const base = Math.min(W / (COLS + 14), H / ((COLS + 14) * 0.55)) * zoom;
+    const cell = base, gap = base * 0.14;
+    const maxH = base * 8;
+    const ox = W / 2, oy = H * 0.52;
+    const p3 = (x, y, z) => {
+      const xr = x * cy + y * sy, yr = -x * sy + y * cy;
+      return [ox + xr * cell, oy + yr * cell * sp - z * cp, yr];
+    };
+    return { p3, cell, gap, maxH };
+  }
+
+  const now = () => performance.now();
+
+  function draw() {
+    const t = now();
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, W, H);
+
+    /* stars */
+    for (const s of stars) {
+      const a = reduceMotion ? 0.7 : 0.45 + 0.45 * Math.sin(t / 1400 * s.tw + s.p);
+      ctx.globalAlpha = Math.max(0.08, a) * 0.85;
+      ctx.fillStyle = "#eeeeff";
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, 7);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    const { p3, cell, gap, maxH } = project();
+    const half = (cell - gap) / 2;
+    const cx0 = COLS / 2, cy0 = 3.5;
+
+    /* ground plane */
+    const g = [
+      p3(-cx0 - 1.2, -cy0 - 1.2, 0), p3(cx0 + 1.2, -cy0 - 1.2, 0),
+      p3(cx0 + 1.2, cy0 + 1.2, 0), p3(-cx0 - 1.2, cy0 + 1.2, 0),
+    ];
+    ctx.beginPath();
+    g.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+    ctx.closePath();
+    ctx.fillStyle = "rgba(25,60,130,0.10)";
+    ctx.strokeStyle = "rgba(25,120,220,0.30)";
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+
+    /* grow-in animation */
+    const growFor = i => {
+      if (reduceMotion) return 1;
+      const e = (t - started - (i / bars.length) * 900) / 650;
+      return e <= 0 ? 0 : e >= 1 ? 1 : 1 - Math.pow(1 - e, 3);
+    };
+
+    /* build faces */
+    const faces = [];
+    for (let i = 0; i < bars.length; i++) {
+      const b = bars[i];
+      const x = b.col - cx0 + 0.5, y = b.row - cy0;
+      const h = Math.max(0.035, b.count / maxCount) * maxH * growFor(i);
+      const c = [x - half / cell, x + half / cell], r = [y - half / cell, y + half / cell];
+      const P = [
+        p3(c[0], r[0], 0), p3(c[1], r[0], 0), p3(c[1], r[1], 0), p3(c[0], r[1], 0),
+        p3(c[0], r[0], h), p3(c[1], r[0], h), p3(c[1], r[1], h), p3(c[0], r[1], h),
+      ];
+      const depth = (P[0][2] + P[2][2]) / 2;
+      const isToday = i === bars.length - 1;
+      const active = i === hovered || i === pinnedBar || i === keyBar;
+      const top = active ? GOLD : isToday ? GOLD : RAMP[b.level];
+      const quad = (a, b2, c2, d, f, isTop) =>
+        faces.push({ pts: [P[a], P[b2], P[c2], P[d]], f, top: isTop, color: top, i, depth });
+      quad(4, 5, 6, 7, 1, true);
+      quad(0, 1, 5, 4, 0.62, false);
+      quad(1, 2, 6, 5, 0.8, false);
+      quad(2, 3, 7, 6, 0.62, false);
+      quad(3, 0, 4, 7, 0.8, false);
+    }
+    faces.sort((a, b) => a.depth - b.depth || a.top - b.top);
+
+    const paintOrder = [];
+    for (const f of faces) {
+      const p = f.pts;
+      const area = (p[1][0] - p[0][0]) * (p[2][1] - p[0][1]) - (p[2][0] - p[0][0]) * (p[1][1] - p[0][1]);
+      if (area >= 0 && !f.top) continue; /* cull back side faces */
+      ctx.beginPath();
+      ctx.moveTo(p[0][0], p[0][1]);
+      ctx.lineTo(p[1][0], p[1][1]);
+      ctx.lineTo(p[2][0], p[2][1]);
+      ctx.lineTo(p[3][0], p[3][1]);
+      ctx.closePath();
+      const active = f.i === hovered || f.i === pinnedBar || f.i === keyBar;
+      const isTodayTop = f.top && f.i === bars.length - 1 && !active;
+      let alpha = 1;
+      if (isTodayTop && !reduceMotion) alpha = 0.75 + 0.25 * Math.sin(t / 350);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = shade(f.color, f.f);
+      ctx.fill();
+      if (f.top && active) {
+        ctx.strokeStyle = "#ffc837";
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      paintOrder.push(f);
+    }
+
+    /* labels */
+    ctx.fillStyle = "rgba(122,134,173,0.9)";
+    ctx.font = `${Math.max(9, cell * 0.9)}px ${getComputedStyle(document.body).getPropertyValue("--mono")}`;
+    ctx.textAlign = "center";
+    for (const m of monthLabels) {
+      const p = p3(m.col - cx0 + 0.5, cy0 + 1.6, 0);
+      ctx.fillText(m.text, p[0], p[1]);
+    }
+    for (const w of WD) {
+      const p = p3(-cx0 - 1.6, w.row - cy0, 0);
+      ctx.fillText(w.text, p[0], p[1]);
+    }
+
+    return paintOrder;
+  }
+
+  /* ---- hit testing ---- */
+  let lastPaint = [];
+  function pick(mx, my) {
+    for (let i = lastPaint.length - 1; i >= 0; i--) {
+      const f = lastPaint[i], p = f.pts;
+      let inside = false;
+      for (let a = 0, b = 3; a < 4; b = a++) {
+        if (((p[a][1] > my) !== (p[b][1] > my)) &&
+            (mx < (p[b][0] - p[a][0]) * (my - p[a][1]) / (p[b][1] - p[a][1]) + p[a][0]))
+          inside = !inside;
+      }
+      if (inside) return f.i;
+    }
+    return -1;
+  }
+
+  /* ---- tooltip ---- */
+  const tipN = document.getElementById("tip-n");
+  const tipW = document.getElementById("tip-word");
+  const tipD = document.getElementById("tip-d");
+  const tipB = document.getElementById("tip-b");
+  const tipA = document.getElementById("tip-a");
+
+  const word = (n, s) => `${n} ${s}${n === 1 ? "" : "s"}`;
+  const row = (what, repo) =>
+    `<div class="row"><span>${what}</span><span class="in">in</span><span class="repo">${repo}</span></div>`;
+
+  function breakdown(b) {
+    const d = b.d;
+    if (!d) return "";
+    const lines = [];
+    for (const [repo, n] of d.c || []) lines.push(row(word(n, "commit"), repo));
+    for (const [repo, n] of d.p || []) lines.push(row(word(n, "pull request"), repo));
+    for (const [repo, n] of d.i || []) lines.push(row(word(n, "issue"), repo));
+    for (const [repo, n] of d.r || []) lines.push(row(word(n, "review"), repo));
+    let html = lines.slice(0, 6).join("");
+    if (lines.length > 6) html += `<div class="row more">+${lines.length - 6} more</div>`;
+    if (d.x) html += row(word(d.x, "contribution"), "private repos");
+    return html;
+  }
+
+  function showTip(i, x, y, pin) {
+    const b = bars[i];
+    tipN.textContent = b.count;
+    tipW.textContent = b.count === 1 ? "contribution" : "contributions";
+    tipD.textContent = fmt(b.date);
+    tipB.innerHTML = breakdown(b);
+    tipA.href = `https://github.com/${user}?tab=overview&from=${b.date}&to=${b.date}`;
+    tip.classList.add("on");
+    tip.classList.toggle("pinned", !!pin);
+    const r = tip.getBoundingClientRect();
+    let tx = x + 16, ty = y - r.height - 12;
+    if (tx + r.width > W - 8) tx = x - r.width - 16;
+    if (ty < 8) ty = y + 18;
+    tip.style.left = tx + "px";
+    tip.style.top = ty + "px";
+  }
+  const hideTip = () => { tip.classList.remove("on", "pinned"); };
+
+  /* ---- pointer events ---- */
+  const pointers = new Map();
+
+  canvas.addEventListener("pointerdown", e => {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    } else {
+      dragging = true; moved = false;
+      lastX = e.clientX; lastY = e.clientY;
+      canvas.classList.add("dragging");
+    }
+    idleAt = now();
+  });
+
+  canvas.addEventListener("pointermove", e => {
+    idleAt = now();
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pointers.size === 2 && pinch) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      zoom = Math.min(3, Math.max(0.5, zoom * d / pinch));
+      pinch = d;
+      return;
+    }
+    if (dragging) {
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+      yaw += dx * 0.006;
+      pitch = Math.min(1.35, Math.max(0.2, pitch + dy * 0.004));
+      lastX = e.clientX; lastY = e.clientY;
+      hint.classList.add("gone");
+      return;
+    }
+    if (e.pointerType === "mouse") {
+      const h = pick(e.clientX, e.clientY);
+      hovered = h;
+      keyBar = -1; pinnedBar = -1;
+      canvas.classList.toggle("hovering", h >= 0);
+      if (h >= 0) showTip(h, e.clientX, e.clientY, false);
+      else hideTip();
+    }
+  });
+
+  const endPointer = e => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (!dragging) return;
+    dragging = false;
+    canvas.classList.remove("dragging");
+    if (!moved) {
+      const h = pick(e.clientX, e.clientY);
+      if (h >= 0) {
+        if (e.pointerType === "mouse") {
+          open(`https://github.com/${user}?tab=overview&from=${bars[h].date}&to=${bars[h].date}`, "_blank");
+        } else {
+          pinnedBar = h;
+          showTip(h, e.clientX, e.clientY, true);
+        }
+      } else { pinnedBar = -1; hideTip(); }
+    }
+  };
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
+  canvas.addEventListener("pointerleave", () => {
+    if (!dragging) { hovered = -1; canvas.classList.remove("hovering"); if (pinnedBar < 0) hideTip(); }
+  });
+
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    idleAt = now();
+    zoom = Math.min(3, Math.max(0.5, zoom * (e.deltaY < 0 ? 1.08 : 0.92)));
+    hint.classList.add("gone");
+  }, { passive: false });
+
+  /* ---- keyboard: arrows walk days, Enter opens ---- */
+  canvas.addEventListener("keydown", e => {
+    const step = { ArrowLeft: -7, ArrowRight: 7, ArrowUp: -1, ArrowDown: 1 }[e.key];
+    if (step !== undefined) {
+      e.preventDefault();
+      idleAt = now();
+      keyBar = keyBar < 0 ? bars.length - 1 : Math.min(bars.length - 1, Math.max(0, keyBar + step));
+      hovered = -1; pinnedBar = -1;
+      const b = bars[keyBar];
+      const { p3 } = project();
+      const p = p3(b.col - COLS / 2 + 0.5, b.row - 3.5, 0);
+      showTip(keyBar, p[0], p[1], true);
+    } else if (e.key === "Enter" && keyBar >= 0) {
+      open(`https://github.com/${user}?tab=overview&from=${bars[keyBar].date}&to=${bars[keyBar].date}`, "_blank");
+    } else if (e.key === "Escape") {
+      keyBar = -1; pinnedBar = -1; hideTip();
+    }
+  });
+  canvas.addEventListener("blur", () => { keyBar = -1; if (pinnedBar < 0) hideTip(); });
+
+  setTimeout(() => hint.classList.add("gone"), 6000);
+
+  /* ---- main loop: idle drift + render ---- */
+  function frame() {
+    if (!reduceMotion && !dragging && hovered < 0 && pinnedBar < 0 && keyBar < 0 &&
+        now() - idleAt > 5000) {
+      yaw += 0.0012;
+    }
+    lastPaint = draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+</script>
