@@ -90,13 +90,50 @@ def repo_languages():
 
 
 def fetch_recents(limit=4):
+    """Latest notes for the README's recents line.
+
+    JSON-first: recents.json (paths/dates from git history) joined with
+    graph-data.json (titles, courses, html paths) — the uninotes site's
+    published data contract. The index-page scrape survives only as a
+    fallback for while the live site predates the contract files.
+    """
+    try:
+        entries = json.loads(urllib.request.urlopen(
+            NOTES_URL + "recents.json", timeout=30).read())
+        nodes = json.loads(urllib.request.urlopen(
+            NOTES_URL + "graph-data.json", timeout=30).read())["nodes"]
+        by_id = {n["id"]: n for n in nodes}
+        rows = []
+        for e in entries:
+            n = by_id.get(e.get("path"))
+            if not n:
+                continue
+            dt = datetime.fromisoformat(e["date"])
+            rows.append({"date": dt.strftime("%-d %b %Y"), "title": n["label"],
+                         "course": n["course"], "change": e.get("change", "Updated"),
+                         "url": NOTES_URL + n["html"]})
+            if len(rows) >= limit:
+                return rows
+        if rows:
+            return rows
+        print("recents contract empty; falling back to page scrape")
+    except Exception as e:
+        print(f"recents contract unavailable ({e}); falling back to page scrape")
     try:
         page = urllib.request.urlopen(NOTES_URL, timeout=30).read().decode()
     except Exception as e:
         print(f"recents fetch failed ({e}); omitting recents line")
         return []
+    # anchor on the listing's machine id, not prose (the literal text also
+    # appears in the page's own TOC, far above the actual table)
+    at = page.find('id="listing-recent"')
+    if at < 0:
+        at = page.find("Recently updated")
+    if at < 0:
+        print("recents anchor not found; omitting recents line")
+        return []
     rows = []
-    for m in re.finditer(r"<tr[^>]*>.*?</tr>", page[page.find("Recently updated"):], re.S):
+    for m in re.finditer(r"<tr[^>]*>.*?</tr>", page[at:], re.S):
         r = m.group(0)
         href = re.search(r'href="\./(courses/[^"]+\.html)"', r)
         cells = [re.sub(r"<[^>]+>", "", c).strip()
