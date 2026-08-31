@@ -190,9 +190,14 @@ def ghost_years(now):
 
 
 def repo_langs():
-    """{repo: primary language} for the terrain's language tinting."""
+    """{repo: primary language} for the terrain's language tinting.
+
+    PUBLIC repos only, filtered explicitly: the output is published, and a
+    run with a personal token (unlike the Actions token) can see private
+    repos — never let their names leak into the feed.
+    """
     q = ('query($login:String!){user(login:$login){repositories(first:100,'
-         'ownerAffiliations:OWNER){nodes{name primaryLanguage{name}}}}}')
+         'ownerAffiliations:OWNER){nodes{name isPrivate primaryLanguage{name}}}}}')
     out = subprocess.run(["gh", "api", "graphql", "-f", f"query={q}",
                           "-f", f"login={USERNAME}"], capture_output=True, text=True)
     if out.returncode:
@@ -200,7 +205,7 @@ def repo_langs():
         return {}
     nodes = json.loads(out.stdout)["data"]["user"]["repositories"]["nodes"]
     return {n["name"]: n["primaryLanguage"]["name"]
-            for n in nodes if n["primaryLanguage"]}
+            for n in nodes if n["primaryLanguage"] and not n["isPrivate"]}
 
 
 def main():
