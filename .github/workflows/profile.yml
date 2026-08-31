@@ -38,7 +38,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build site
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CONTRIB_PAT (optional, classic PAT with repo scope) lets the feed
+          # see private repos so it can publish per-day LANGUAGE buckets —
+          # names never leave the script either way
+          GH_TOKEN: ${{ secrets.CONTRIB_PAT || secrets.GITHUB_TOKEN }}
           GH_USERNAME: ${{ github.repository_owner }}
           TZ_NAME: Australia/Brisbane
         run: |

@@ -9,7 +9,9 @@ gh CLI, authenticated with GH_TOKEN) and writes one JSON payload:
 Per-day detail "d" itemizes commits per repo ("c"), pull requests ("p"),
 issues ("i") and reviews ("r"); "x" is the remainder the API won't itemize
 (private/other contributions), computed against the calendar count so private
-repo names never appear in the output.
+repo names never appear in the output. When the token can see private repos
+(CONTRIB_PAT), "pl" adds per-day {language: commits} buckets for them —
+language only, never a name.
 
 Contribution days are bucketed in TZ_NAME — GitHub buckets the profile
 calendar in the profile owner's timezone, so this must match it.
@@ -37,7 +39,7 @@ query($login: String!, $from: DateTime!, $to: DateTime!,
         weeks { contributionDays { date contributionCount contributionLevel } }
       }
       commitContributionsByRepository(maxRepositories: 100) {
-        repository { name isPrivate }
+        repository { name isPrivate primaryLanguage { name } }
         contributions(first: 100) { nodes { occurredAt commitCount } }
       }
       pullRequestContributions(first: 100, after: $prCur) {
@@ -110,7 +112,7 @@ def build_payload():
             for w in calendar["weeks"] for d in w["contributionDays"]]
 
     # breakdown in <=92-day windows so per-repo commit buckets fit in first:100
-    commit_buckets = {}  # (occurredAt, repo) -> max commitCount
+    commit_buckets = {}  # (occurredAt, real repo name) -> (max count, private, lang)
     events = set()       # (occurredAt, kind, repo)
     edges = [start + (now - start) * i / 4 for i in range(5)]
     for w in range(4):
@@ -122,12 +124,15 @@ def build_payload():
             cc = gql(frm, to, cursors)
             if first:
                 for rep in cc["commitContributionsByRepository"]:
-                    repo = ("(private)" if rep["repository"]["isPrivate"]
-                            else rep["repository"]["name"])
+                    r = rep["repository"]
+                    lang = ((r.get("primaryLanguage") or {}).get("name")
+                            if r["isPrivate"] else None)
                     for n in rep["contributions"]["nodes"]:
-                        key = (n["occurredAt"], repo)
-                        commit_buckets[key] = max(commit_buckets.get(key, 0),
-                                                  n["commitCount"])
+                        key = (n["occurredAt"], r["name"])
+                        old = commit_buckets.get(key)
+                        if not old or n["commitCount"] > old[0]:
+                            commit_buckets[key] = (n["commitCount"],
+                                                   r["isPrivate"], lang)
                 first = False
             for field, kind, obj in EVENT_FIELDS:
                 if done[field]:
@@ -151,8 +156,13 @@ def build_payload():
         k = detail.setdefault(date, {}).setdefault(kind, {})
         k[repo] = k.get(repo, 0) + n
 
-    for (occurred, repo), n in commit_buckets.items():
-        bump(local_date(occurred), "c", repo, n)
+    plang = {}  # date -> {language: private commits}; anonymous by design
+    for (occurred, name), (n, priv, lang) in commit_buckets.items():
+        date = local_date(occurred)
+        bump(date, "c", "(private)" if priv else name, n)
+        if priv and lang:
+            pl = plang.setdefault(date, {})
+            pl[lang] = pl.get(lang, 0) + n
     for occurred, kind, repo in sorted(events):
         bump(local_date(occurred), kind, repo)
 
@@ -164,6 +174,8 @@ def build_payload():
         other = max(0, d["count"] - visible)
         if other:
             dd["x"] = other
+        if d["date"] in plang:
+            dd["pl"] = plang[d["date"]]
         if dd:
             d["d"] = dd
 
