@@ -163,6 +163,11 @@ def build_payload():
         if priv and lang:
             pl = plang.setdefault(date, {})
             pl[lang] = pl.get(lang, 0) + n
+    if not plang:
+        # contributionsCollection refuses to itemize private repos for any
+        # token type (they stay in restrictedContributionsCount) — when the
+        # token can read the repos themselves, walk their logs instead
+        plang = private_scan(start, now)
     for occurred, kind, repo in sorted(events):
         bump(local_date(occurred), kind, repo)
 
@@ -184,6 +189,52 @@ def build_payload():
     if ghosts:
         payload["ghosts"] = ghosts
     return payload
+
+
+def private_scan(start, now):
+    """Per-day {language: commits} from private repos' own default-branch
+    logs. Language only — repo names never leave this function. Returns {}
+    when the token can't see private repos (plain GITHUB_TOKEN runs)."""
+    q = ('query($login:String!){user(login:$login){repositories(first:100,'
+         'ownerAffiliations:OWNER,privacy:PRIVATE)'
+         '{nodes{name pushedAt primaryLanguage{name}}}}}')
+    out = subprocess.run(["gh", "api", "graphql", "-f", f"query={q}",
+                          "-f", f"login={USERNAME}"], capture_output=True, text=True)
+    if out.returncode:
+        return {}
+    nodes = json.loads(out.stdout)["data"]["user"]["repositories"]["nodes"]
+    plang = {}
+    for n in nodes:
+        lang = (n.get("primaryLanguage") or {}).get("name")
+        pushed = n.get("pushedAt")
+        if not lang or not pushed:
+            continue
+        if datetime.fromisoformat(pushed.replace("Z", "+00:00")) < start:
+            continue
+        page = 1
+        while True:
+            r = subprocess.run(
+                ["gh", "api", f"repos/{USERNAME}/{n['name']}/commits?"
+                 f"author={USERNAME}&since={iso(start)}&until={iso(now)}"
+                 f"&per_page=100&page={page}"],
+                capture_output=True, text=True)
+            if r.returncode:
+                break
+            commits = json.loads(r.stdout)
+            for c in commits:
+                date = local_date(c["commit"]["author"]["date"])
+                pl = plang.setdefault(date, {})
+                pl[lang] = pl.get(lang, 0) + 1
+            if len(commits) < 100:
+                break
+            page += 1
+    if plang:
+        totals = {}
+        for pl in plang.values():
+            for lang, k in pl.items():
+                totals[lang] = totals.get(lang, 0) + k
+        print(f"private languages (anonymous): {totals}")
+    return plang
 
 
 def ghost_years(now):
