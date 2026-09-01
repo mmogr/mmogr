@@ -184,7 +184,8 @@ def build_payload():
         if dd:
             d["d"] = dd
 
-    payload = {"user": USERNAME, "days": days, "repoLangs": repo_langs()}
+    payload = {"user": USERNAME, "days": days, "repoLangs": repo_langs(),
+               "repos": public_repos()}
     ghosts = ghost_years(now)
     if ghosts:
         payload["ghosts"] = ghosts
@@ -269,6 +270,49 @@ def repo_langs():
     nodes = json.loads(out.stdout)["data"]["user"]["repositories"]["nodes"]
     return {n["name"]: n["primaryLanguage"]["name"]
             for n in nodes if n["primaryLanguage"] and not n["isPrivate"]}
+
+
+def public_repos():
+    """The repo roster for the homepage's planets: every PUBLIC repo with
+    the flags and release the sky styles from (archived repos become ghost
+    planets, forks captured asteroids, a fresh release goes nova).
+
+    privacy:PUBLIC is filtered in the query itself — the output is
+    published, and a personal-token run can see private repos; their names
+    must never reach the feed. repoLangs stays alongside so already-baked
+    pages keep working.
+    """
+    q = ('query($login:String!){user(login:$login){repositories(first:100,'
+         'ownerAffiliations:OWNER,privacy:PUBLIC){nodes{name description '
+         'isArchived isFork primaryLanguage{name} '
+         'latestRelease{tagName publishedAt}}}}}')
+    out = subprocess.run(["gh", "api", "graphql", "-f", f"query={q}",
+                          "-f", f"login={USERNAME}"], capture_output=True, text=True)
+    if out.returncode:
+        print(f"repos query failed ({out.stderr[:200]}); omitting")
+        return []
+    nodes = json.loads(out.stdout)["data"]["user"]["repositories"]["nodes"]
+    repos = []
+    for n in nodes:
+        r = {"name": n["name"]}
+        lang = (n.get("primaryLanguage") or {}).get("name")
+        if lang:
+            r["lang"] = lang
+        if n.get("description"):
+            r["desc"] = n["description"]
+        if n["isArchived"]:
+            r["archived"] = 1
+        if n["isFork"]:
+            r["fork"] = 1
+        rel = n.get("latestRelease") or {}
+        if rel.get("publishedAt"):
+            r["rel"] = {"tag": rel.get("tagName") or "", "at": rel["publishedAt"]}
+        repos.append(r)
+    print(f"repos: {len(repos)} public "
+          f"({sum(1 for r in repos if r.get('archived'))} archived, "
+          f"{sum(1 for r in repos if r.get('fork'))} forks, "
+          f"{sum(1 for r in repos if r.get('rel'))} with releases)")
+    return repos
 
 
 def main():
