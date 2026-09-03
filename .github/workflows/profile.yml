@@ -1,30 +1,14 @@
+# Publishes contribs.json to mmogr.github.io/mmogr/ nightly — the data feed
+# behind mattogrady.com's contribution terrain, language tints and planets.
+# The profile-card graphics that used to be rendered here are retired: this
+# repository no longer carries a README, so the profile shows nothing but
+# the repositories and the calendar.
 name: Profile
 on:
   schedule:
     - cron: "0 18 * * *"
   workflow_dispatch:
 jobs:
-  graphics:
-    runs-on: ubuntu-latest
-    name: generate-profile-cards
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Render profile cards + README
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_USERNAME: ${{ github.repository_owner }}
-          TZ_NAME: Australia/Brisbane
-        run: python3 .github/scripts/render_profile_cards.py
-      - name: Commit & Push
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add -A .
-          git commit -m "generate profile cards" || echo "no changes"
-          git pull --rebase origin main
-          git push
   pages:
     runs-on: ubuntu-latest
     name: publish-data-feed
