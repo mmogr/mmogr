@@ -1,8 +1,10 @@
 # Publishes contribs.json to mmogr.github.io/mmogr/ nightly — the data feed
 # behind mattogrady.com's contribution terrain, language tints and planets.
-# The profile-card graphics that used to be rendered here are retired: this
-# repository no longer carries a README, so the profile shows nothing but
-# the repositories and the calendar.
+# The profile-card graphics that used to be rendered here are retired, and
+# nothing here writes the README: it is a file kept by hand. The one
+# picture in it is mattogrady.com's own (/year-light.svg, /year-dark.svg),
+# which that site's build draws from this feed by the arithmetic its page
+# uses, so the profile and the page cannot say different things.
 name: Profile
 on:
   schedule:
