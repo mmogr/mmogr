@@ -7,8 +7,6 @@
   </picture>
 </a>
 
-A year of commits, week by week. [Open any week day by day at mattogrady.com](https://mattogrady.com/#work).
-
 - **[gglib](https://github.com/mmogr/gglib)**: The local model runtime that makes llama.cpp behave like an API provider.
 - **[ggchat](https://github.com/mmogr/ggchat)**: Chat with your own model server from an iPhone or Mac, from anywhere, with no VPN, no account, and no cloud in the path.
 - **[modelpipe](https://github.com/mmogr/modelpipe)**: Reach your local model server from anywhere, p2p, end-to-end encrypted, no VPN, no account, no cloud in the path.
